@@ -12,9 +12,12 @@
         }"
         @click="!focusedChart && handleCardClick($event, type)"
       >
-        <component
-          :is="type === 'score' ? 'TeamsTotalScore' : 'TeamsTotalDefense'"
-        />
+        <div class="chart-content">
+          <component
+            :is="type === 'score' ? 'TeamsTotalScore' : 'TeamsTotalDefense'"
+            :teams="teams"
+          />
+        </div>
       </div>
       <div v-if="focusedChart" class="overlay" @click="resetFocus"></div>
     </div>
@@ -24,25 +27,33 @@
 <script>
   import TeamsTotalScore from "@/components/TeamsTotalScore.vue";
   import TeamsTotalDefense from "@/components/TeamsTotalDefense.vue";
+  import LoadingSpinner from "@/components/common/LoadingSpinner.vue";
+
   export default {
+    name: "TeamsAnalysisView",
     components: {
       TeamsTotalScore,
       TeamsTotalDefense,
+      LoadingSpinner,
+    },
+    props: {
+      teams: {
+        type: Array,
+        required: true,
+      },
     },
     data() {
       return {
         focusedChart: null,
         isCollapsing: false,
+        loadedChartsCount: 0,
+        isLoading: true,
       };
     },
     methods: {
       handleCardClick(event, chartName) {
         if (this.focusedChart === chartName) {
-          this.isCollapsing = true;
-          setTimeout(() => {
-            this.isCollapsing = false;
-            this.focusedChart = null;
-          }, 300);
+          this.resetFocus();
         } else {
           const card = event.currentTarget;
           const rect = card.getBoundingClientRect();
@@ -76,9 +87,10 @@
 
   .charts-wrapper {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr 1fr;
     gap: 20px;
-    max-width: 1800px;
+    padding: 20px;
+    max-width: 100%;
     margin: 0 auto;
     position: relative;
     z-index: 1;
@@ -92,11 +104,12 @@
     transition: transform 0.3s ease;
     cursor: pointer;
     position: relative;
-    min-height: 600px;
+    min-height: 500px;
     transform-origin: center;
     display: flex;
     flex-direction: column;
     z-index: 1;
+    width: 100%;
   }
 
   .chart-box:not(.expanded):not(.collapsed):hover {
@@ -106,7 +119,9 @@
 
   .chart-box.expanded {
     position: fixed;
-    z-index: 12; 
+    display: flex;
+    justify-content: center;
+    z-index: 12;
     animation: expandFromOrigin 0.3s ease-out forwards;
     background: white;
     pointer-events: auto;
@@ -117,18 +132,18 @@
   .chart-box.expanded :deep(.chart-container) {
     pointer-events: auto;
     position: relative;
-    z-index: 13; 
+    z-index: 13;
     cursor: default;
   }
 
   .overlay {
-    position: fixed; 
+    position: fixed;
     top: 0;
     left: 0;
     width: 100vw;
     height: 100vh;
     background: rgba(0, 0, 0, 0.5);
-    z-index: 11; 
+    z-index: 11;
     cursor: pointer;
     pointer-events: auto;
   }
@@ -142,6 +157,11 @@
     opacity: 0.6;
     pointer-events: none;
     z-index: 1;
+  }
+
+  .chart-box.expanded .chart-content {
+    align-items: center;
+    justify-content: center;
   }
 
   @keyframes expandFromOrigin {
@@ -186,6 +206,23 @@
     .chart-box.expanded {
       width: 95vw;
       height: 95vh;
+    }
+  }
+
+  @media (max-width: 1600px) {
+    .charts-wrapper {
+      gap: 20px;
+    }
+
+    .chart-box {
+      padding: 10px;
+    }
+  }
+
+  @media (max-width: 1200px) {
+    .charts-wrapper {
+      grid-template-columns: 1fr;
+      max-width: 900px;
     }
   }
 </style>

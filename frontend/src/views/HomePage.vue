@@ -22,7 +22,7 @@
         gr.classList.add('fade-out-left')
 
         setTimeout(() => {
-          this.$router.push('/teams-analysis')
+          this.$router.push('/select-team')
         }, 1000)
       }
     }

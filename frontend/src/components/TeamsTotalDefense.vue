@@ -1,34 +1,31 @@
 <template>
   <div class="teams-defense">
-    <form @submit.prevent="updateChart" class="team-selection-form">
-      <div v-for="n in 3" :key="n" class="team-select">
-        <select v-model="selectedTeams[n - 1]">
-          <option value="">選擇球隊 {{ n }}</option>
-          <option v-for="team in teams" :key="team.id" :value="team.id">
-            {{ team.full_name }}
-          </option>
-        </select>
-      </div>
-      <button type="submit" :disabled="isLoading">
-        {{ isLoading ? "載入中..." : "比較球隊" }}
-      </button>
-    </form>
-
     <div v-if="error" class="error-message">{{ error }}</div>
-    <div id="defense-chart" class="chart-container" v-show="!isLoading"></div>
+    <LoadingSpinner v-else-if="isLoading" />
+    <div v-else>
+      <div id="defense-chart" class="chart-container"></div>
+    </div>
   </div>
 </template>
 
 <script>
   import Plotly from "plotly.js-dist";
   import apiService from "@/services/api";
+  import LoadingSpinner from "./common/LoadingSpinner.vue";
 
   export default {
     name: "TeamsTotalDefense",
+    components: {
+      LoadingSpinner,
+    },
+    props: {
+      teams: {
+        type: Array,
+        required: true,
+      },
+    },
     data() {
       return {
-        teams: [],
-        selectedTeams: ["", "", ""],
         chartData: [],
         isLoading: false,
         error: null,
@@ -37,36 +34,51 @@
     async mounted() {
       await this.fetchTeams();
     },
+    watch: {
+      teams: {
+        handler: "fetchTeams",
+        immediate: true,
+      },
+    },
     methods: {
       async fetchTeams() {
-        try {
-          const response = await apiService.teams.getTeams();
-          if (response.status === "success") {
-            this.teams = response.data;
-          }
-        } catch (error) {
-          this.error = "無法載入球隊列表";
-          console.error("Error fetching teams:", error);
+        if (!this.teams.length) {
+          this.error = "未選擇球隊";
+          return;
         }
-      },
-      async updateChart() {
-        this.error = null;
+
         this.isLoading = true;
+        this.error = null;
+
         try {
-          const teamIds = this.selectedTeams.filter((id) => id);
+          // 先取得球隊映射
+          const teamMapping = await apiService.teams.getTeamMapping();
+          // 將球隊名稱轉換為ID
+          const teamIds = this.teams
+            .map((teamName) => teamMapping[teamName])
+            .filter((id) => id); // 過濾掉無效的ID
+
+          if (teamIds.length === 0) {
+            this.error = "無效的球隊名稱";
+            return;
+          }
+
           const response = await apiService.teams.getTeamStats(
             teamIds.join(",")
           );
-
           if (response.status === "success" && response.data.length > 0) {
             this.chartData = response.data;
-            this.renderDefenseChart();
+            this.$nextTick(() => {
+              if (document.getElementById("defense-chart")) {
+                this.renderDefenseChart();
+              }
+            });
           } else {
             this.error = "無法取得球隊數據";
           }
         } catch (error) {
-          this.error = "載入數據時發生錯誤";
           console.error("Error:", error);
+          this.error = "載入數據時發生錯誤";
         } finally {
           this.isLoading = false;
         }
@@ -131,8 +143,6 @@
             tickformat: ",d",
             dtick: 1000,
           },
-          width: 1600,
-          height: 800,
           paper_bgcolor: "white",
           plot_bgcolor: "white",
           showlegend: true,
@@ -152,39 +162,22 @@
 
 <style scoped>
   .teams-defense {
-    padding: 20px;
-    max-width: 1600px;
-    margin: 0 auto;
+    padding: 10px;
+    width: 100%;
+    height: 100%;
   }
 
-  .team-selection-form {
-    display: flex;
-    gap: 20px;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-  }
-
-  .team-select select {
-    padding: 8px 12px;
-    min-width: 250px;
+  .chart-container {
+    width: 100%;
+    height: 100%;
+    min-height: 450px;
+    border: 1px solid #eee;
     border-radius: 4px;
-    border: 1px solid #ddd;
+    padding: 10px;
   }
 
   .error-message {
     color: #ff4d4f;
     margin-bottom: 16px;
-  }
-
-  .chart-container {
-    width: 100%;
-    height: 800px;
-    border: 1px solid #eee;
-    border-radius: 4px;
-    padding: 16px;
-  }
-
-  .team-selection-form {
-    pointer-events: auto;
   }
 </style>

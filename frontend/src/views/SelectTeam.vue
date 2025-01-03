@@ -1,15 +1,55 @@
 <template>
-  <div>
-    <div id="plot" style="width: 100%; height: 100vh"></div>
+  <div class="plot-container">
+    <div class="mode-controls">
+      <button
+        :class="['mode-btn', { active: mode === 'single' }]"
+        @click="setMode('single')"
+      >
+        單隊模式
+      </button>
+      <button
+        :class="['mode-btn', { active: mode === 'multiple' }]"
+        @click="setMode('multiple')"
+      >
+        多隊模式
+      </button>
+    </div>
+
+    <div v-if="mode === 'multiple'" class="selected-teams">
+      <div class="selected-teams-list">
+        <div v-for="team in selectedTeams" :key="team" class="team-tag">
+          {{ team }}
+          <span @click="removeTeam(team)" class="remove-btn">&times;</span>
+        </div>
+      </div>
+      <button
+        @click="compareTeams"
+        :disabled="selectedTeams.length < 2"
+        class="compare-btn"
+      >
+        比較球隊
+      </button>
+    </div>
+
+    <LoadingSpinner v-if="isLoading" />
+    <div
+      id="plot"
+      :class="{ loading: isLoading }"
+      style="width: 100%; height: 100vh"
+    ></div>
   </div>
 </template>
 
 <script>
   import Plotly from "plotly.js-dist";
   import apiService from "@/services/api.js";
+  import LoadingSpinner from "@/components/common/LoadingSpinner.vue";
 
   export default {
     name: "SelectTeam",
+    components: {
+      LoadingSpinner,
+    },
     data() {
       return {
         teamLogos: {
@@ -44,62 +84,106 @@
           "Utah Jazz": require("../assets/photos/logos/jazz.svg"),
           "Washington Wizards": require("../assets/photos/logos/wizards.svg"),
         },
+        isLoading: false,
+        mode: "single",
+        selectedTeams: [],
+        teamData: [],
       };
     },
     async mounted() {
       try {
         const response = await apiService.teams.getNbaTeams();
-        console.log('API Response:', response); // 檢查API響應
-        
-        if (response.status === 'success' && Array.isArray(response.data)) {
-          this.initPlot(response.data);
+        if (response.status === "success" && Array.isArray(response.data)) {
+          await this.initPlot(response.data);
+          this.setupEventListeners();
         } else {
-          console.error('Invalid data format:', response);
+          console.error("Invalid data format:", response);
         }
       } catch (error) {
         console.error("Error fetching data:", error);
       }
+      this.$nextTick(() => {
+        window.addEventListener("resize", this.handleResize);
+      });
+    },
+    beforeUnmounted() {
+      window.removeEventListener("resize", this.handleResize);
     },
     methods: {
-      initPlot(data) {
-        if (!Array.isArray(data) || data.length === 0) {
-          console.error('Invalid or empty data:', data);
-          return;
+      handleResize() {
+        const plot = document.getElementById("plot");
+        if (plot && plot.layout) {
+          Plotly.relayout(plot, {
+            "xaxis.autorange": false,
+            "yaxis.autorange": false,
+          });
         }
+      },
+      async initPlot(data) {
+        try {
+          this.isLoading = true;
+          if (!Array.isArray(data) || data.length === 0) {
+            console.error("Invalid or empty data:", data);
+            return;
+          }
 
-        const lookup = this.processData(data);
-        const teams = Object.keys(lookup);
-        const seasons = this.getUniqueSortedSeasons(data);
-        const traces = this.createTraces(teams, lookup);
-        const layout = this.createLayout(teams, traces, seasons);
+          const lookup = this.processData(data);
+          const teams = Object.keys(lookup);
+          this.teamData = teams.map(team => ({ name: team })); 
+          const seasons = this.getUniqueSortedSeasons(data);
+          const traces = this.createTraces(teams, lookup);
+          const layout = this.createLayout(teams, traces, seasons);
 
-        Plotly.newPlot("plot", traces, layout).then(() => {
-          this.setupFrames(teams, seasons, lookup);
-        });
+          Plotly.newPlot("plot", traces, layout).then(() => {
+            this.setupFrames(teams, seasons, lookup);
+          });
+        } catch (error) {
+          console.error("Error initializing plot:", error);
+        } finally {
+          this.isLoading = false;
+        }
       },
       processData(data) {
         if (!Array.isArray(data)) {
-          console.error('Data is not an array:', data);
+          console.error("Data is not an array:", data);
           return {};
         }
 
         const lookup = {};
+
+        // 初始化時建立 Set
         data.forEach((d) => {
-          if (d && d.team) {  // 確保數據物件存在且有team屬性
+          if (d && d.team) {
             if (!lookup[d.team]) {
               lookup[d.team] = {
                 x: [],
                 y: [],
                 text: [],
                 seasons: [],
+                validData: {},
               };
             }
-            lookup[d.team].x.push(d.total_defense || 0);
-            lookup[d.team].y.push(d.total_offense || 0);
-            lookup[d.team].text.push(d.season || '');
-            lookup[d.team].seasons.push(d.season || '');
           }
         });
+
+        data.forEach((d) => {
+          if (d && d.team && d.season) {
+            const team = lookup[d.team];
+
+            // 先檢查是否為有效數據
+            const isValidData = d.total_defense > 0 && d.total_offense > 0;
+
+            // 設置有效性標記
+            team.validData[d.season] = isValidData;
+
+            // 添加其他數據
+            team.x.push(d.total_defense || 0);
+            team.y.push(d.total_offense || 0);
+            team.text.push(d.season);
+            team.seasons.push(d.season);
+          }
+        });
+
         return lookup;
       },
 
@@ -108,22 +192,35 @@
           name: team,
           x: lookup[team].x,
           y: lookup[team].y,
-          text: lookup[team].seasons,
+          text: lookup[team].seasons.map((season) => `${team}<br>${season}`), // 修正 hover 文字
           mode: "markers",
           type: "scatter",
           marker: {
-            size: 60,
-            opacity: 0,
+            size: 40,
+            opacity: 1,
+            color: "#4a90e2",
           },
-          customdata: Array(lookup[team].x.length).fill(this.teamLogos[team]),
+          hoverinfo: "name+text",
+          showlegend: false,
         }));
       },
 
       createLayout(teams, traces, seasons) {
+        const logoSize = 1500; // 固定 logo 大小
+
+        const allX = traces.flatMap((trace) => trace.x);
+        const allY = traces.flatMap((trace) => trace.y);
+        const xMin = Math.min(...allX);
+        const xMax = Math.max(...allX);
+        const yMin = Math.min(...allY);
+        const yMax = Math.max(...allY);
+
         return {
           title: "NBA Teams Performance",
           xaxis: {
             title: "Defense",
+            range: [xMin * 0.9, xMax * 1.1],
+            fixedrange: true,
             zeroline: true,
             zerolinewidth: 2,
             zerolinecolor: "#969696",
@@ -137,6 +234,8 @@
           },
           yaxis: {
             title: "Offense",
+            range: [yMin * 0.9, yMax * 1.1],
+            fixedrange: true,
             zeroline: true,
             zerolinewidth: 2,
             zerolinecolor: "#969696",
@@ -217,8 +316,8 @@
             y: traces[i].y[0],
             xref: "x",
             yref: "y",
-            sizex: 1000,
-            sizey: 1000,
+            sizex: logoSize,
+            sizey: logoSize,
             xanchor: "center",
             yanchor: "middle",
             sizing: "contain",
@@ -230,35 +329,94 @@
       setupFrames(teams, seasons, lookup) {
         const frames = seasons.map((season) => ({
           name: season,
-          data: teams.map((team) => ({
-            x: [lookup[team].x[lookup[team].seasons.indexOf(season)]],
-            y: [lookup[team].y[lookup[team].seasons.indexOf(season)]],
-          })),
+          data: teams.map((team) => {
+            const idx = lookup[team].seasons.indexOf(season);
+            const hasValidData = lookup[team].validData[season];
+
+            return {
+              x: [lookup[team].x[idx]],
+              y: [lookup[team].y[idx]],
+              text: `${team}<br>${season}`,
+              team: team,
+              hasValidData: hasValidData,
+            };
+          }),
         }));
 
-        Plotly.addFrames("plot", frames);
+        const plot = document.getElementById("plot");
 
-        document.getElementById("plot").on("plotly_animatingframe", (e) => {
-          this.updateImagePositions(e.frame, teams);
+        // 移除舊的事件監聵器
+        if (plot._events) {
+          plot._events = {};
+        }
+
+        // 添加新的事件監聽器
+        plot.on("plotly_animatingframe", (e) => {
+          if (e && e.frame && e.frame.data) {
+            this.updateImagePositions(e.frame.data, teams);
+          }
         });
+
+        plot.on("plotly_sliderchange", (e) => {
+          if (e && typeof e.step !== "undefined") {
+            const currentSeason = seasons[e.step];
+            const frameData = frames.find((f) => f.name === currentSeason);
+            if (frameData) {
+              this.updateImagePositions(frameData.data, teams);
+            }
+          }
+        });
+
+        // 添加 frames
+        Plotly.addFrames("plot", frames);
       },
 
-      updateImagePositions(frameData, teams) {
-        const gd = document.getElementById("plot");
-        const images = frameData.data.map((d, i) => ({
-          source: this.teamLogos[teams[i]],
-          x: d.x[0],
-          y: d.y[0],
-          xref: "x",
-          yref: "y",
-          sizex: 1000,
-          sizey: 1000,
-          xanchor: "center",
-          yanchor: "middle",
-          sizing: "contain",
-          layer: "above",
-        }));
-        Plotly.relayout(gd, { images: images });
+      async updateImagePositions(frameData) {
+        try {
+          this.isLoading = true;
+          const gd = document.getElementById("plot");
+          if (!gd || !gd.layout) return;
+
+          const logoSize = 1500; // 固定 logo 大小
+
+          const images = frameData
+            .map((d) => {
+              if (
+                !d ||
+                !d.hasValidData ||
+                !d.x ||
+                !d.y ||
+                d.x[0] === 0 ||
+                d.y[0] === 0
+              ) {
+                return null;
+              }
+
+              return {
+                source: this.teamLogos[d.team],
+                x: d.x[0],
+                y: d.y[0],
+                xref: "x",
+                yref: "y",
+                sizex: logoSize,
+                sizey: logoSize,
+                xanchor: "center",
+                yanchor: "middle",
+                sizing: "contain",
+                layer: "above",
+                opacity: 1,
+              };
+            })
+            .filter((img) => img !== null);
+
+          if (images.length > 0) {
+            Plotly.relayout(gd, { images: images });
+          }
+        } catch (error) {
+          console.error("Error updating image positions:", error);
+        } finally {
+          this.isLoading = false;
+        }
       },
 
       getUniqueSortedSeasons(data) {
@@ -266,12 +424,177 @@
           (a, b) => parseInt(a.split("-")[0]) - parseInt(b.split("-")[0])
         );
       },
+
+      setupEventListeners() {
+        const plot = document.getElementById("plot");
+        if (!plot) return;
+
+        // 清除現有事件監聽器
+        if (plot._events) {
+          plot._events = {};
+        }
+
+        plot.on("plotly_click", async (data) => {
+          if (!data || !data.points || !data.points[0]) return;
+
+          const point = data.points[0];
+          const teamName = point.data.name;
+          console.log("Clicked team:", teamName);
+
+          if (this.mode === "single") {
+            console.log("Navigating to team stats:", teamName); // 偵錯用
+            this.$router.push({
+              name: "stats",
+              params: { team: teamName },
+            });
+          } else {
+            this.selectedTeams.push(teamName);
+          }
+        });
+
+        // 保持其他事件監聽器不變
+        plot.on("plotly_animatingframe", (e) => {
+          if (e && e.frame && e.frame.data) {
+            this.updateImagePositions(e.frame.data);
+          }
+        });
+      },
+
+      async handleMultipleModeClick(teamName) {
+        if (this.selectedTeams.includes(teamName)) {
+          this.removeTeam(teamName);
+        } else if (this.selectedTeams.length < 4) {
+          this.selectedTeams.push(teamName);
+        }
+
+        // 立即更新樣式
+        await this.$nextTick();
+        this.updateTeamMarkersStyle();
+      },
+
+      removeTeam(team) {
+        this.selectedTeams = this.selectedTeams.filter((t) => t !== team);
+      },
+
+      compareTeams() {
+        if (this.selectedTeams.length >= 2) {
+          this.$router.push({
+            name: "teams-analysis",
+            query: { teams: this.selectedTeams.join(",") },
+          });
+        }
+      },
+
+      async setMode(newMode) {
+        this.mode = newMode;
+        this.selectedTeams = [];
+
+        // 確保 DOM 更新後再更新樣式
+        await this.$nextTick();
+        this.updateTeamMarkersStyle();
+      },
+
+      updateTeamMarkersStyle() {
+        const plot = document.getElementById("plot");
+        if (!plot) return;
+
+        const update = {
+          "marker.size": this.teamData.map((team) => {
+            if (this.mode === "multiple") {
+              return this.selectedTeams.includes(team.name) ? 60 : 40;
+            }
+            return 40;
+          }),
+          "marker.opacity": this.teamData.map(() => 1),
+          "marker.color": this.teamData.map((team) => {
+            if (this.mode === "multiple") {
+              return this.selectedTeams.includes(team.name)
+                ? "#ff6b6b"
+                : "#4a90e2";
+            }
+            return "#4a90e2";
+          }),
+        };
+
+        Plotly.restyle(plot, update);
+
+        this.updateImagePositions(plot.data);
+      },
     },
   };
 </script>
 
 <style scoped>
+  .plot-container {
+    position: relative;
+  }
+
   #plot {
     background-color: white;
+  }
+
+  #plot.loading {
+    opacity: 0.5;
+  }
+
+  .mode-controls {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    display: flex;
+    gap: 10px;
+  }
+
+  .mode-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    background: #f0f0f0;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+
+  .mode-btn.active {
+    background: #2196f3;
+    color: white;
+  }
+
+  .selected-teams {
+    position: absolute;
+    top: 70px;
+    right: 20px;
+    z-index: 1000;
+    background: white;
+    padding: 10px;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    max-width: 300px;
+  }
+
+  .selected-team {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px;
+    margin: 5px 0;
+    background: #f5f5f5;
+    border-radius: 4px;
+  }
+
+  .confirm-btn {
+    width: 100%;
+    padding: 8px;
+    margin-top: 10px;
+    background: #4caf50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .confirm-btn:disabled {
+    background: #cccccc;
+    cursor: not-allowed;
   }
 </style>

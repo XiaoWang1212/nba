@@ -10,6 +10,15 @@ module.exports = defineConfig({
         changeOrigin: true,
       },
     },
+    hot: true,
+    liveReload: false,
+    client: {
+      progress: true,
+      overlay: {
+        errors: true,
+        warnings: false
+      }
+    }
   },
   configureWebpack: {
     plugins: [

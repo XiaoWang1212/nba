@@ -4,6 +4,7 @@ import pandas as pd # type: ignore
 from nba_api.stats.static.teams import get_teams # type: ignore
 from nba_api.stats.endpoints import teamyearbyyearstats # type: ignore
 import json
+from math import sqrt
 
 app = Flask(__name__)
 CORS(app, resources={
@@ -17,49 +18,39 @@ CORS(app, resources={
 @app.route('/api/nba-teams', methods=['GET'])
 def get_nba_teams_stats():
     try:
-        # 讀取 JSON 資料
-        with open('./data/nba_data.json') as f:
+        with open('./data/nba_team.json') as f:
             nba_data = json.load(f)
 
-        # 使用字典來儲存分組數據
-        team_stats = {}
+        formatted_data = []
         
-        # 處理每個球員的數據
-        for player in nba_data:
-            team = player['team']
-            season = player['season']
-            key = (team, season)
-            
-            if key not in team_stats:
-                team_stats[key] = {
-                    'total_defense': 0,
-                    'total_offense': 0
-                }
-            
-            # 累加防守和進攻數據
-            team_stats[key]['total_defense'] += (
-                player['defensive_rebounds'] +
-                player['steals'] +
-                player['blocks']
-            )
-            team_stats[key]['total_offense'] += player['points']
-
-        # 轉換為所需的輸出格式
-        formatted_data = [
-            {
-                'team': team,
-                'season': season,
-                'total_defense': stats['total_defense'],
-                'total_offense': stats['total_offense']
-            }
-            for (team, season), stats in team_stats.items()
-        ]
+        # 遍歷每個球隊的每個賽季
+        for team, seasons in nba_data.items():
+            for season, players in seasons.items():
+                # 計算該賽季所有球員的總和
+                total_defense = sum(
+                    player['defensive_rebounds'] + 
+                    player['steals'] + 
+                    player['blocks']
+                    for player in players
+                )
+                
+                total_offense = sum(
+                    player['points']
+                    for player in players
+                )
+                
+                formatted_data.append({
+                    'team': team,
+                    'season': season,
+                    'total_defense': total_defense,
+                    'total_offense': total_offense
+                })
         
         return jsonify({
             "status": "success",
             "data": formatted_data
         })
-
+        
     except Exception as e:
         print("Error:", str(e))
         return jsonify({
