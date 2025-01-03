@@ -4,7 +4,6 @@ import pandas as pd # type: ignore
 from nba_api.stats.static.teams import get_teams # type: ignore
 from nba_api.stats.endpoints import teamyearbyyearstats # type: ignore
 import json
-from math import sqrt
 
 app = Flask(__name__)
 CORS(app, resources={
@@ -152,5 +151,102 @@ def get_team_stats():
             "message": str(e)
         }), 500
 
+@app.route('/api/analyze-stats', methods=['POST'])
+def analyze_stats():
+    try:
+        data = request.json
+        
+        if data.get('type') == 'defense':
+            analysis_result = perform_defense_analysis(data['data'])
+        else:
+            analysis_result = perform_score_analysis(data['data'])
+        
+        return jsonify({
+            "status": "success",
+            "data": {
+                "analysis": analysis_result
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "warning",
+            "data": {
+                "analysis": perform_score_analysis(data['data'])
+            }
+        })
+
+def perform_score_analysis(data):
+    try:
+        teams_data = {}
+        analysis_text = []
+        
+        for entry in data:
+            team = entry['team']
+            if team not in teams_data:
+                teams_data[team] = []
+            teams_data[team].append(entry)
+            
+        for team, stats in teams_data.items():
+            total_points = sum(s['total_points'] for s in stats)
+            avg_points = total_points / len(stats)
+            max_points = max(stats, key=lambda x: x['total_points'])
+            min_points = min(stats, key=lambda x: x['total_points'])
+            
+            analysis = f"""
+                {team} 分析：
+                - 平均得分：{avg_points:.1f}
+                - 最佳表現：{max_points['season']} 賽季，得分 {max_points['total_points']}
+                - 最差表現：{min_points['season']} 賽季，得分 {min_points['total_points']}
+                """
+            analysis_text.append(analysis)
+            
+        return "\n".join(analysis_text)
+    except Exception as e:
+        return f"本地分析發生錯誤: {str(e)}"
+    
+def perform_defense_analysis(data):
+    try:
+        teams_data = {}
+        analysis_text = []
+        
+        # 整理數據
+        for entry in data:
+            team = entry['team']
+            if team not in teams_data:
+                teams_data[team] = []
+            teams_data[team].append(entry)
+        
+        # 分析每隊防守數據
+        for team, stats in teams_data.items():
+            # 計算總防守數據
+            total_blocks = sum(s['blocks'] for s in stats)
+            total_steals = sum(s['steals'] for s in stats)
+            total_def_rebounds = sum(s['defensive_rebounds'] for s in stats)
+            
+            # 計算平均值
+            avg_blocks = total_blocks / len(stats)
+            avg_steals = total_steals / len(stats)
+            avg_def_rebounds = total_def_rebounds / len(stats)
+            
+            # 找出最佳防守表現賽季
+            best_defense = max(stats, key=lambda x: x['blocks'] + x['steals'] + x['defensive_rebounds'])
+            
+            analysis = f"""
+                {team} 防守分析：
+                - 平均數據：
+                  • 籃板：{avg_def_rebounds:.1f}
+                  • 抄截：{avg_steals:.1f}
+                  • 蓋帽：{avg_blocks:.1f}
+                - 最佳防守賽季：{best_defense['season']}
+                  • 籃板：{best_defense['defensive_rebounds']}
+                  • 抄截：{best_defense['steals']}
+                  • 蓋帽：{best_defense['blocks']}
+                """
+            analysis_text.append(analysis)
+            
+        return "\n".join(analysis_text)
+    except Exception as e:
+        return f"防守分析發生錯誤: {str(e)}"
+        
 if __name__ == '__main__':
     app.run(debug=True)

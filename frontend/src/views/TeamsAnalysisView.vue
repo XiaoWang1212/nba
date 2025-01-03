@@ -16,6 +16,7 @@
           <component
             :is="type === 'score' ? 'TeamsTotalScore' : 'TeamsTotalDefense'"
             :teams="teams"
+            :isExpanded="focusedChart === type"
           />
         </div>
       </div>

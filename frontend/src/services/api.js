@@ -18,6 +18,25 @@ const apiService = {
     }
   },
 
+  async post(endpoint, data) {
+    try {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error("API request failed:", error);
+      throw error;
+    }
+  },
+
   nba: {
     getStats: () => apiService.get("/api/nba-stats"),
   },
@@ -51,6 +70,10 @@ const apiService = {
       return response;
     },
     getNbaTeams: () => apiService.get("/api/nba-teams"),
+    analyzeStats: async (payload) => {
+      const response = await apiService.post('/api/analyze-stats', payload);
+      return response;
+    },
   },
 };
 

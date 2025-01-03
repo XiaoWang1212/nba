@@ -2,8 +2,20 @@
   <div class="teams-defense">
     <div v-if="error" class="error-message">{{ error }}</div>
     <LoadingSpinner v-else-if="isLoading" />
-    <div v-else>
-      <div id="defense-chart" class="chart-container"></div>
+    <div v-else class="defense-container" :class="{ expanded: isExpanded }">
+      <div class="chart-section">
+        <div
+          id="defense-chart"
+          ref="defenseChart"
+          class="chart-container"
+        ></div>
+      </div>
+      <div v-if="isExpanded && analysis" class="analysis-section">
+        <div class="analysis-container">
+          <h3>防守分析報告</h3>
+          <div class="analysis-content">{{ analysis }}</div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -23,6 +35,10 @@
         type: Array,
         required: true,
       },
+      isExpanded: {
+        type: Boolean,
+        default: false,
+      },
     },
     data() {
       return {
@@ -38,6 +54,24 @@
       teams: {
         handler: "fetchTeams",
         immediate: true,
+      },
+      isExpanded: {
+        immediate: true,
+        handler(newVal) {
+          if (newVal && this.chartData.length > 0) {
+            this.$nextTick(() => {
+              this.renderDefenseChart();
+              if (!this.analysis) {
+                this.analyzeDefenseStats(this.chartData);
+              }
+            });
+          }
+          if (this.chartData.length > 0) {
+            this.$nextTick(() => {
+              this.updateChartSize();
+            });
+          }
+        },
       },
     },
     methods: {
@@ -68,6 +102,7 @@
           );
           if (response.status === "success" && response.data.length > 0) {
             this.chartData = response.data;
+            await this.analyzeDefenseStats(response.data);
             this.$nextTick(() => {
               if (document.getElementById("defense-chart")) {
                 this.renderDefenseChart();
@@ -130,7 +165,7 @@
           xaxis: {
             title: {
               text: "球隊名稱",
-              font: { size: 25 },
+              font: { size: 20 },
             },
             tickangle: -45,
             automargin: true,
@@ -138,14 +173,15 @@
           yaxis: {
             title: {
               text: "防守次數",
-              font: { size: 25 },
+              font: { size: 20 },
             },
-            tickformat: ",d",
             dtick: 1000,
           },
           paper_bgcolor: "white",
           plot_bgcolor: "white",
           showlegend: true,
+          width: this.isExpanded ? 1000 : 600,
+          height: this.isExpanded ? 600 : 450,
           autosize: true,
           margin: { t: 50, l: 50, r: 80, b: 50, pad: 4 },
         };
@@ -155,6 +191,28 @@
           displayModeBar: false,
           useResizeHandler: true,
         });
+      },
+      async analyzeDefenseStats(data) {
+        try {
+          const response = await apiService.teams.analyzeStats({
+            data: data,
+            type: "defense",
+          });
+          this.analysis = response.data.analysis;
+        } catch (error) {
+          console.error("分析錯誤:", error);
+        }
+      },
+      updateChartSize() {
+        const chart = document.getElementById("defense-chart");
+        if (chart) {
+          const newLayout = {
+            width: this.isExpanded ? 1000 : 600,
+            height: this.isExpanded ? 600 : 450,
+            autosize: true,
+          };
+          Plotly.relayout(chart, newLayout);
+        }
       },
     },
   };
@@ -174,6 +232,52 @@
     border: 1px solid #eee;
     border-radius: 4px;
     padding: 10px;
+  }
+
+  .defense-container {
+    display: flex;
+    gap: 20px;
+    transition: all 0.3s ease;
+  }
+
+  .defense-container:not(.expanded) {
+    display: block;
+  }
+
+  .chart-section {
+    width: 600px;
+    transition: all 0.3s ease;
+  }
+
+  .expanded .chart-section {
+    width: 1000px;
+  }
+
+  .analysis-container {
+    background: #f5f5f5;
+    border-radius: 8px;
+    padding: 15px;
+    height: 100%;
+  }
+
+  .analysis-section {
+    width: 300px;
+    overflow-y: auto;
+    padding-right: 10px;
+    max-height: 80vh;
+  }
+
+  .analysis-content {
+    white-space: pre-line;
+    line-height: 1.2;
+    font-size: 14px;
+  }
+
+  h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 16px;
+    color: #333;
   }
 
   .error-message {
