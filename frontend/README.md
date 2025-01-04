@@ -22,7 +22,7 @@
 ### 1. 下載專案
 
 ```bash
-git clone https://github.com/xiaowang/nba.git
+git clone https://github.com/XiaoWang1212/nba.git
 cd nba
 ```
 
