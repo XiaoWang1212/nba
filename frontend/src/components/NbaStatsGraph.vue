@@ -1,9 +1,9 @@
 <template>
   <div>
     <LoadingSpinner v-if="isLoading" />
-    <div v-else-if="error">{{ error }}</div>
+    <div v-if="error" class="error-message">{{ error }}</div>
     <div v-else class="chart-container">
-        <div id="row"></div>
+      <div :id="chartId"></div>
     </div>
   </div>
 </template>
@@ -29,23 +29,17 @@
         exchangeData: [],
         isLoading: false,
         error: null,
+        chartId: `stats-graph-${Date.now()}`, 
       };
     },
-    async mounted() {
-      await this.fetchData();
+    mounted() {
+     this.fetchData();
     },
-    watch: {
-      exchangeData: {
-        handler(newData) {
-          if (newData.length > 0) {
-            console.log("Data received:", newData);
-            this.$nextTick(() => {
-              this.createCharts();
-            });
-          }
-        },
-        immediate: true,
-      },
+    beforeUnmount() {
+      const element = document.getElementById("stats-graph");
+      if (element) {
+        element.innerHTML = "";
+      }
     },
     methods: {
       async fetchData() {
@@ -68,10 +62,10 @@
       },
       createCharts() {
         // 清除現有圖表
-        const container = document.getElementById("row");
+        const container = document.getElementById(this.chartId);
         if (!container) {
-            console.error("Container element not found");
-            return;
+          console.error("Container element not found");
+          return;
         }
         container.innerHTML = "";
 
@@ -130,6 +124,9 @@
           },
           barmode: "overlay",
           bargap: 0,
+          width: this.isExpanded ? 1000 : 400,
+          height: this.isExpanded ? 800 : 600,
+          autosize: true,
         };
 
         let teamDiv = document.createElement("div");
@@ -138,15 +135,21 @@
         teamDiv.id = `chart-${this.team.replace(/\s/g, "-")}`;
         container.appendChild(teamDiv);
 
-        Plotly.newPlot(teamDiv.id, [trace1, trace2], layout);
+        Plotly.newPlot(this.chartId, [trace1, trace2], layout);
       },
     },
   };
 </script>
 
 <style scoped>
-.chart-container {
+  .chart-container {
     padding: 20px;
     min-height: 600px;
-}
+  }
+
+  .error-message {
+    color: #ff4d4f;
+    text-align: center;
+    margin: 20px 0;
+  }
 </style>

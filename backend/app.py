@@ -83,7 +83,29 @@ def get_nba_stats():
             "status": "success",
             "data": result
         })
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
+@app.route('/api/member-stats', methods=['GET'])
+def get_member_stats():
+    try:
+        df = pd.read_json("./data/nba_data.json")
+        all_seasons = ["2018-2019", "2019-2020", "2020-2021", "2021-2022", "2022-2023", "2023-2024"]
+        team_data = df[df["season"].isin(all_seasons)]
+        
+        grouped = team_data.groupby(["team", "full_name"]).agg(
+            points=('points', 'sum'),
+            assists=('assists', 'sum'),
+            rebounds=('rebounds', 'sum')
+        ).reset_index()
+        
+        return jsonify({
+            "status": "success",
+            "data": grouped.to_dict('records')
+        })
     except Exception as e:
         return jsonify({
             "status": "error",

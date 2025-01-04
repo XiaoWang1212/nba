@@ -88,6 +88,7 @@
         mode: "single",
         selectedTeams: [],
         teamData: [],
+        currentSeason: null,
       };
     },
     async mounted() {
@@ -367,6 +368,8 @@
           }
         });
 
+        this.currentSeason = seasons[seasons.length - 1];
+
         // 添加 frames
         Plotly.addFrames("plot", frames);
       },
@@ -439,13 +442,12 @@
 
           const point = data.points[0];
           const teamName = point.data.name;
-          console.log("Clicked team:", teamName);
 
           if (this.mode === "single") {
             console.log("Navigating to team stats:", teamName); // 偵錯用
             this.$router.push({
-              name: "stats",
-              params: { team: teamName },
+              name: "team-detail",
+              params: { team: teamName, season: this.currentSeason },
             });
           } else {
             this.selectedTeams.push(teamName);

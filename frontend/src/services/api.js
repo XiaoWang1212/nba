@@ -39,6 +39,7 @@ const apiService = {
 
   nba: {
     getStats: () => apiService.get("/api/nba-stats"),
+    getMemberStats: () => apiService.get("/api/member-stats"),
   },
 
   teams: {

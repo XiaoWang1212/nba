@@ -1,50 +1,54 @@
 <template>
   <div class="teams-total-stats">
-    <form @submit.prevent="updateChart" class="team-selection-form">
-      <!-- 球隊選擇 -->
-      <div class="team-select">
-        <select v-model="selectedTeam">
-          <option value="">選擇球隊</option>
-          <option v-for="(fullName, id) in teamNames" :key="id" :value="id">
-            {{ fullName }}
-          </option>
-        </select>
+    <LoadingSpinner v-if="isLoading" />
+    <div v-else-if="error" class="error-message">{{ error }}</div>
+    <div v-else>
+      <h2 class="team-title">
+        {{ getTeamFullName(team) }} {{ season }} 賽季統計
+      </h2>
+      <div
+        class="charts-container"
+        v-show="!isLoading"
+        :class="{ expanded: isExpanded }"
+      >
+        <div :id="shotChartId" class="chart"></div>
+        <div :id="makeChartId" class="chart"></div>
       </div>
-      <!-- 年份選擇 -->
-      <div class="year-select">
-        <select v-model="selectedYear">
-          <option value="">選擇年份</option>
-          <option v-for="year in years" :key="year" :value="year">
-            {{ year }}
-          </option>
-        </select>
-      </div>
-      <button type="submit" :disabled="isLoading">
-        {{ isLoading ? "載入中..." : "比較球隊" }}
-      </button>
-    </form>
-
-    <div v-if="error" class="error-message">{{ error }}</div>
-    <div class="charts-container" v-show="!isLoading">
-      <div id="shot-structure" class="chart"></div>
-      <div id="make-structure" class="chart"></div>
     </div>
   </div>
 </template>
 
 <script>
+  import LoadingSpinner from "./common/LoadingSpinner.vue";
   import Plotly from "plotly.js-dist";
   import nbaData from "@/assets/data/nba.json";
 
   export default {
     name: "TeamsTotalStats",
+    components: {
+      LoadingSpinner,
+    },
+    props: {
+      team: {
+        type: String,
+        required: true,
+      },
+      season: {
+        type: String,
+        required: true,
+      },
+      isExpanded: {
+        type: Boolean,
+        default: false,
+      },
+    },
     data() {
       return {
-        selectedTeam: "",
-        selectedYear: "",
         isLoading: false,
         error: null,
         nbaData: nbaData,
+        shotChartId: `shot-chart-${Date.now()}`,
+        makeChartId: `make-chart-${Date.now()}`,
         teamNames: {
           "atlanta-hawks": "Atlanta Hawks",
           "boston-celtics": "Boston Celtics",
@@ -87,21 +91,62 @@
         ],
       };
     },
+    watch: {
+      team: {
+        immediate: true,
+        handler(newTeam) {
+          if (newTeam) {
+            // 找到對應的 team ID
+            const teamId = Object.entries(this.teamNames).find(
+              (name) => name === newTeam
+            )?.[0];
+            if (teamId) {
+              this.selectedTeam = teamId;
+            }
+          }
+        },
+      },
+      season: {
+        immediate: true,
+        handler(newSeason) {
+          if (newSeason) {
+            this.selectedYear = newSeason;
+          }
+        },
+      },
+      $route: {
+        immediate: true,
+        handler() {
+          if (this.selectedTeam && this.selectedYear) {
+            this.renderCharts();
+          }
+        },
+      },
+    },
+    mounted() {
+      this.$nextTick(() => {
+        this.renderCharts();
+      });
+    },
+    beforeUnmount() {
+      const element = document.getElementById("member-chart");
+      if (element) {
+        element.innerHTML = "";
+      }
+    },
     methods: {
-      updateChart() {
-        if (!this.selectedTeam || !this.selectedYear) {
-          this.error = "請選擇球隊和年份";
-          return;
-        }
-
-        const teamData = this.nbaData.find(
-          (item) =>
-            item.YEAR === this.selectedYear &&
-            item.TEAM === this.teamNames[this.selectedTeam]
-        );
+      renderCharts() {
+        const formattedSeason = this.season.replace("-20", "-");
+        const teamData = this.nbaData.find((item) => {
+          const itemYear = item.YEAR.replace("-20", "-");
+          return (
+            itemYear === formattedSeason &&
+            item.TEAM === this.getTeamFullName(this.team)
+          );
+        });
 
         if (!teamData) {
-          this.error = "找不到對應的數據";
+          this.error = `找不到 ${this.team} 在 ${this.season} 賽季的數據`;
           return;
         }
 
@@ -142,16 +187,29 @@
           title: "球隊出手結構",
           margin: { t: 30, l: 0 },
           font: { size: 15 },
+          width: this.isExpanded ? 1000 : 350,
+          height: this.isExpanded ? 800 : 500,
+          autosize: true,
         };
 
         const layout2 = {
           title: "球隊命中結構",
           margin: { t: 30, l: 0 },
           font: { size: 15 },
+          width: this.isExpanded ? 1000 : 350,
+          height: this.isExpanded ? 800 : 500,
+          autosize: true,
         };
 
-        Plotly.newPlot("shot-structure", [trace1], layout1);
-        Plotly.newPlot("make-structure", [trace2], layout2);
+        Plotly.newPlot(this.shotChartId, [trace1], layout1);
+        Plotly.newPlot(this.makeChartId, [trace2], layout2);
+      },
+      getTeamFullName(team) {
+        // 從 teamNames 中找到完整隊名
+        const entry = Object.entries(this.teamNames).find(
+          ([key, value]) => value === team || key === team
+        );
+        return entry ? entry[1] : team;
       },
     },
   };
@@ -160,37 +218,39 @@
 <style scoped>
   .teams-total-stats {
     padding: 20px;
-    max-width: 1200px;
-    margin: 0 auto;
+    width: 100%;
+    height: 100%;
   }
 
-  .team-selection-form {
-    display: flex;
-    gap: 20px;
+  .team-title {
+    text-align: center;
     margin-bottom: 20px;
-    align-items: center;
-  }
-
-  .team-select select,
-  .year-select select {
-    padding: 8px 12px;
-    min-width: 200px;
-    border-radius: 4px;
-    border: 1px solid #ddd;
+    color: #1a1a1a;
+    font-size: 24px;
+    font-weight: bold;
   }
 
   .charts-container {
     display: flex;
     gap: 20px;
-    justify-content: space-between;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+  }
+
+  .charts-container.expanded {
+    flex-direction: row;
   }
 
   .chart {
-    width: 48%;
-    height: 400px;
+    width: 100%;
+    height: 350px;
     border: 1px solid #eee;
     border-radius: 4px;
-    padding: 16px;
+  }
+
+  .charts-container.expanded .chart {
+    width: 50%;
   }
 
   .error-message {
