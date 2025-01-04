@@ -130,7 +130,7 @@
 
           const lookup = this.processData(data);
           const teams = Object.keys(lookup);
-          this.teamData = teams.map(team => ({ name: team })); 
+          this.teamData = teams.map((team) => ({ name: team }));
           const seasons = this.getUniqueSortedSeasons(data);
           const traces = this.createTraces(teams, lookup);
           const layout = this.createLayout(teams, traces, seasons);
@@ -198,7 +198,7 @@
           type: "scatter",
           marker: {
             size: 40,
-            opacity: 1,
+            opacity: 0,
             color: "#4a90e2",
           },
           hoverinfo: "name+text",
@@ -444,13 +444,17 @@
           const teamName = point.data.name;
 
           if (this.mode === "single") {
-            console.log("Navigating to team stats:", teamName); // 偵錯用
             this.$router.push({
               name: "team-detail",
               params: { team: teamName, season: this.currentSeason },
             });
           } else {
-            this.selectedTeams.push(teamName);
+            if (this.selectedTeams.includes(teamName)) {
+              this.removeTeam(teamName);
+            } else if (this.selectedTeams.length < 4) {
+              this.selectedTeams.push(teamName);
+            }
+            this.updateTeamMarkersStyle();
           }
         });
 
@@ -507,7 +511,7 @@
             }
             return 40;
           }),
-          "marker.opacity": this.teamData.map(() => 1),
+          "marker.opacity": this.teamData.map(() => 0),
           "marker.color": this.teamData.map((team) => {
             if (this.mode === "multiple") {
               return this.selectedTeams.includes(team.name)
@@ -540,7 +544,7 @@
   }
 
   .mode-controls {
-    position: absolute;
+    position: fixed;
     top: 20px;
     right: 20px;
     z-index: 1000;
@@ -563,7 +567,7 @@
   }
 
   .selected-teams {
-    position: absolute;
+    position: fixed;
     top: 70px;
     right: 20px;
     z-index: 1000;

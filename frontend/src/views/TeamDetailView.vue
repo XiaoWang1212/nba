@@ -1,5 +1,8 @@
 <template>
   <div class="detail-container">
+    <button class="back-btn" @click="goBack">
+      <span>&larr;</span> 返回選擇
+    </button>
     <div class="carousel-container">
       <button
         v-if="!focusedChart"
@@ -152,6 +155,9 @@
           ];
         }
       },
+      goBack() {
+        this.$router.push({ name: "select-team" });
+      },
     },
   };
 </script>
@@ -161,6 +167,33 @@
     min-height: 100vh;
     position: relative;
     overflow: hidden;
+  }
+
+  .back-btn {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    padding: 10px 20px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+    z-index: 1000;
+    transition: all 0.3s ease;
+  }
+
+  .back-btn:hover {
+    background: rgba(0, 0, 0, 0.9);
+    transform: translateY(-2px);
+  }
+
+  .back-btn span {
+    font-size: 20px;
   }
 
   .carousel-container {
