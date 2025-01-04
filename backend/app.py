@@ -8,7 +8,7 @@ import json
 app = Flask(__name__)
 CORS(app, resources={
     r"/*": {
-        "origins": ["http://localhost:8080"],  # Vue.js 開發伺服器的位置
+        "origins": ["http://localhost:8080" ,"http://localhost:8081"],  # Vue.js 開發伺服器的位置
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"]
     }
