@@ -1,9 +1,32 @@
 <template>
-  <div class="member-stats">
+  <div :class="{ 'expanded-layout': isExpanded }">
     <LoadingSpinner v-if="isLoading" />
     <div v-if="error" class="error-message">{{ error }}</div>
-    <div v-else class="charts-container">
+    <div :class="['charts-container', { 'expand-chart': isExpanded }]">
       <div :id="chartId"></div>
+    </div>
+    <div v-if="analysis && isExpanded" class="analysis-section">
+      <h3>球員表現分析</h3>
+      <ul>
+        <li>
+          得分王：{{ analysis.topScorer.full_name }} ({{
+            analysis.topScorer.points
+          }}
+          分)
+        </li>
+        <li>
+          助攻王：{{ analysis.topAssist.full_name }} ({{
+            analysis.topAssist.assists
+          }}
+          次)
+        </li>
+        <li>
+          籃板王：{{ analysis.topRebounder.full_name }} ({{
+            analysis.topRebounder.rebounds
+          }}
+          個)
+        </li>
+      </ul>
     </div>
   </div>
 </template>
@@ -23,6 +46,10 @@
         type: String,
         required: true,
       },
+      isExpanded: {
+        type: Boolean,
+        default: false,
+      },
     },
     data() {
       return {
@@ -30,6 +57,7 @@
         isLoading: false,
         error: null,
         chartId: `member-chart-${Date.now()}`,
+        analysis: null,
       };
     },
     async mounted() {
@@ -47,6 +75,12 @@
         handler() {
           this.fetchData();
         },
+      },
+      chartData: {
+        handler() {
+          this.analyzeData();
+        },
+        immediate: true,
       },
     },
     methods: {
@@ -152,28 +186,99 @@
 
         Plotly.newPlot(this.chartId, data, layout);
       },
+
+      analyzeData() {
+        if (!this.chartData?.length) return;
+
+        this.analysis = {
+          topScorer: this.chartData.reduce(
+            (max, player) => (player.points > max.points ? player : max),
+            { points: 0 }
+          ),
+
+          topAssist: this.chartData.reduce(
+            (max, player) => (player.assists > max.assists ? player : max),
+            { assists: 0 }
+          ),
+
+          topRebounder: this.chartData.reduce(
+            (max, player) => (player.rebounds > max.rebounds ? player : max),
+            { rebounds: 0 }
+          ),
+        };
+      },
     },
   };
 </script>
 
 <style scoped>
   .member-stats {
+    display: flex;
+    justify-content: center;
+    align-items: center;
     width: 100%;
     height: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
   }
 
   .charts-container {
+    padding: 20px;
+    min-height: 600px;
+  }
+
+  .charts-container:not(.expand-chart) {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .expanded-layout {
+    display: flex;
+    flex-direction: row;
     width: 100%;
     height: 100%;
-    min-height: 600px;
   }
 
   .error-message {
     color: #ff4d4f;
     text-align: center;
     margin: 20px 0;
+  }
+
+  .analysis-section {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    width: 100%;
+    margin-top: 20px;
+    padding: 15px;
+    background: #f5f5f5;
+    border-radius: 8px;
+  }
+
+  .analysis-section {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  .analysis-section h3 {
+    margin-bottom: 10px;
+    color: #333;
+    font-size: 1.8em;
+  }
+
+  .analysis-section ul {
+    list-style: none;
+    padding: 0;
+    width: 100%;
+  }
+
+  .analysis-section li {
+    margin-bottom: 8px;
+    color: #666;
+    font-size: 1.5em;
+    padding: 10px;
+    border-bottom: 1px solid #eee;
   }
 </style>

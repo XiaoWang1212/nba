@@ -22,10 +22,15 @@ def get_nba_teams_stats():
 
         formatted_data = []
         
+        valid_seasons = ["2018-2019", "2019-2020", "2020-2021", "2021-2022", "2022-2023", "2023-2024"]
+        
         # 遍歷每個球隊的每個賽季
         for team, seasons in nba_data.items():
             for season, players in seasons.items():
                 # 計算該賽季所有球員的總和
+                if season not in valid_seasons:
+                    continue
+                
                 total_defense = sum(
                     player['defensive_rebounds'] + 
                     player['steals'] + 

@@ -1,27 +1,48 @@
 <template>
   <div class="detail-container">
-    <div class="charts-wrapper">
-      <div
-        v-for="(type, index) in ['stats', 'member', 'graph']"
-        :key="index"
-        class="chart-box"
-        :class="{
-          expanded: focusedChart === type,
-          collapsed: focusedChart && focusedChart !== type,
-          collapsing: isCollapsing,
-        }"
-        @click="!focusedChart && handleCardClick($event, type)"
+    <div class="carousel-container">
+      <button
+        v-if="!focusedChart"
+        class="nav-btn left-btn"
+        @click="rotate('left')"
       >
-        <div class="chart-content">
-          <component
-            :is="getComponent(type)"
-            :team="team"
-            :season="season"
-            :isExpanded="focusedChart === type"
-          />
+        &lt;
+      </button>
+      <div class="carousel">
+        <div
+          v-for="(type, index) in ['stats', 'member', 'graph']"
+          :key="index"
+          class="chart-box"
+          :class="{
+            front: currentPosition[index] === 'front',
+            left: currentPosition[index] === 'left',
+            right: currentPosition[index] === 'right',
+            expanded:
+              focusedChart === type && currentPosition[index] === 'front',
+            collapsing: isCollapsing && focusedChart === type,
+          }"
+          @click="handleCardClick($event, type)"
+        >
+          <div class="chart-content">
+            <component
+              :is="getComponent(type)"
+              :team="team"
+              :season="season"
+              :isExpanded="
+                focusedChart === type && currentPosition[index] === 'front'
+              "
+            />
+          </div>
         </div>
+        <!-- <div v-if="focusedChart" class="overlay" @click="resetFocus"></div> -->
       </div>
-      <div v-if="focusedChart" class="overlay" @click="resetFocus"></div>
+      <button
+        v-if="!focusedChart"
+        class="nav-btn right-btn"
+        @click="rotate('right')"
+      >
+        &gt;
+      </button>
     </div>
   </div>
 </template>
@@ -52,6 +73,8 @@
       return {
         focusedChart: null,
         isCollapsing: false,
+        currentPosition: ["front", "left", "right"],
+        components: ["stats", "member", "graph"],
       };
     },
     mounted() {
@@ -80,26 +103,53 @@
         return components[type];
       },
       async handleCardClick(event, chartName) {
-        if (this.focusedChart) {
-          this.resetFocus();
-          return;
-        }
+        if (
+          this.currentPosition[this.components.indexOf(chartName)] === "front"
+        ) {
+          if (this.focusedChart === chartName) {
+            this.resetFocus();
+          } else if (!this.focusedChart) {
+            // 只有在沒有展開的卡片時才展開
+            const card = event.currentTarget;
+            const rect = card.getBoundingClientRect();
 
-        const card = event.currentTarget;
-        const rect = card.getBoundingClientRect();
-        card.style.setProperty("--original-width", `${rect.width}px`);
-        card.style.setProperty("--original-height", `${rect.height}px`);
-        card.style.setProperty("--original-top", `${rect.top}px`);
-        card.style.setProperty("--original-left", `${rect.left}px`);
-        this.focusedChart = chartName;
+            // 設置原始位置
+            this.$nextTick(() => {
+              card.style.setProperty("--original-width", `${rect.width}px`);
+              card.style.setProperty("--original-height", `${rect.height}px`);
+              card.style.setProperty("--original-top", `${rect.top}px`);
+              card.style.setProperty("--original-left", `${rect.left}px`);
+              this.focusedChart = chartName;
+            });
+          }
+        }
       },
       resetFocus() {
         if (this.focusedChart) {
           this.isCollapsing = true;
-          setTimeout(() => {
-            this.isCollapsing = false;
-            this.focusedChart = null;
-          }, 300);
+          this.$nextTick(() => {
+            setTimeout(() => {
+              this.isCollapsing = false;
+              this.focusedChart = null;
+            }, 300);
+          });
+        }
+      },
+      rotate(direction) {
+        if (this.focusedChart) return;
+
+        if (direction === "right") {
+          this.currentPosition = [
+            this.currentPosition[2],
+            this.currentPosition[0],
+            this.currentPosition[1],
+          ];
+        } else {
+          this.currentPosition = [
+            this.currentPosition[1],
+            this.currentPosition[2],
+            this.currentPosition[0],
+          ];
         }
       },
     },
@@ -109,9 +159,98 @@
 <style scoped>
   .detail-container {
     min-height: 100vh;
-    padding: 20px;
     position: relative;
     overflow: hidden;
+  }
+
+  .carousel-container {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    perspective: 1000px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+  }
+
+  .carousel {
+    position: relative;
+    width: 60%;
+    height: 70%;
+    transform-style: preserve-3d;
+    transform: translateZ(-300px);
+  }
+
+  .chart-box {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    transition: all 0.8s ease-out;
+    transform-origin: center;
+    transform-style: preserve-3d;
+    cursor: pointer;
+  }
+
+  .chart-box.front {
+    transform: rotateY(0deg) translateZ(300px);
+    z-index: 3;
+    opacity: 1;
+    transition-delay: 0s;
+  }
+
+  .chart-box.left {
+    transform: rotateY(-120deg) translateZ(300px);
+    z-index: 1;
+    opacity: 0;
+    pointer-events: none;
+    transition-delay: 0s;
+  }
+
+  .chart-box.right {
+    transform: rotateY(120deg) translateZ(300px);
+    z-index: 1;
+    opacity: 0;
+    pointer-events: none;
+    transition-delay: 0s;
+  }
+
+  .nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    border: none;
+    padding: 15px;
+    cursor: pointer;
+    border-radius: 50%;
+    z-index: 4;
+    transition: all 0.3s ease;
+  }
+
+  nav-btn:hover {
+    background: rgba(0, 0, 0, 0.8);
+  }
+
+  .left-btn {
+    left: 20px;
+  }
+
+  .right-btn {
+    right: 20px;
+  }
+
+  .chart-content {
+    width: 100%;
+    height: 100%;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    padding: 20px;
+    backface-visibility: hidden;
+    position: relative;
+    z-index: 12;
   }
 
   .charts-wrapper {
@@ -126,23 +265,6 @@
     height: calc(100vh - 40px);
   }
 
-  .chart-box {
-    background: white;
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s ease;
-    cursor: pointer;
-    position: relative;
-    min-height: 600px;
-    max-height: 800px;
-    transform-origin: center;
-    display: flex;
-    flex-direction: column;
-    z-index: 1;
-    overflow: auto;
-  }
-
   .chart-content {
     flex: 1;
     display: flex;
@@ -152,6 +274,7 @@
   }
 
   .chart-box.expanded {
+    transform: translate(-50%, -50%) !important; /* 修改這行，加上 !important */
     position: fixed;
     display: flex;
     justify-content: center;
@@ -160,6 +283,22 @@
     background: white;
     pointer-events: auto;
     cursor: default;
+  }
+
+  .overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0; /* 加入右邊界 */
+    bottom: 0; /* 加入下邊界 */
+    width: 100%; /* 改為100% */
+    height: 100%; /* 改為100% */
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 11;
+    cursor: pointer;
+    pointer-events: auto;
+    margin: 0; /* 確保沒有邊距 */
+    padding: 0; /* 確保沒有內距 */
   }
 
   .chart-box.collapsing {
@@ -176,8 +315,8 @@
     }
     100% {
       transform: translate(-50%, -50%) scale(1);
-      width: 90vw;
-      height: 90vh;
+      width: 100vw;
+      height: 100vh;
       top: 50%;
       left: 50%;
     }
@@ -186,8 +325,8 @@
   @keyframes collapseToOrigin {
     0% {
       transform: translate(-50%, -50%) scale(1);
-      width: 90vw;
-      height: 90vh;
+      width: 100vw;
+      height: 100vh;
       top: 50%;
       left: 50%;
     }
@@ -205,27 +344,20 @@
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
   }
 
-  .chart-box.expanded {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 90vw;
-    height: 90vh;
-    z-index: 12;
-    cursor: default;
-    overflow: auto;
+  .chart-box.expanded .chart-content {
+    width: 100%;
+    height: 100%;
+    padding: 20px;
+    pointer-events: all;
+    z-index: 1001;
   }
 
-  .overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 11;
-    cursor: pointer;
+  .chart-box.expanded :deep(.chart-container),
+  .chart-box.expanded :deep(.charts-container) {
+    width: 100%;
+    height: 100%;
+    pointer-events: all;
+    z-index: 1000;
   }
 
   .chart-box.collapsed {

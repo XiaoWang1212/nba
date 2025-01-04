@@ -233,13 +233,11 @@
   .charts-container {
     display: flex;
     gap: 20px;
-    flex-direction: column;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
     width: 100%;
     height: 100%;
-  }
-
-  .charts-container.expanded {
-    flex-direction: row;
   }
 
   .chart {
@@ -247,6 +245,8 @@
     height: 350px;
     border: 1px solid #eee;
     border-radius: 4px;
+    justify-content: center;
+    align-items: center;
   }
 
   .charts-container.expanded .chart {
