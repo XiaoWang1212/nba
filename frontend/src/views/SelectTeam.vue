@@ -88,7 +88,6 @@
         mode: "single",
         selectedTeams: [],
         teamData: [],
-        currentSeason: null,
       };
     },
     async mounted() {
@@ -361,7 +360,6 @@
         plot.on("plotly_sliderchange", (e) => {
           if (e && typeof e.step !== "undefined") {
             const currentSeason = seasons[e.step];
-            this.currentSeason = currentSeason;
             const frameData = frames.find((f) => f.name === currentSeason);
             if (frameData) {
               this.updateImagePositions(frameData.data, teams);
@@ -439,9 +437,11 @@
           if (!data || !data.points || !data.points[0]) return;
 
           const point = data.points[0];
-          console.log("Clicked point:", point);
           const teamName = point.data.name;
-          const pointSeason = point.data.text.split("<br>")[1];
+          let pointSeason = null;
+          if (point.data.text) {
+            pointSeason = point.data.text.split("<br>")[1];
+          }
 
           if (this.mode === "single") {
             this.$router.push({
