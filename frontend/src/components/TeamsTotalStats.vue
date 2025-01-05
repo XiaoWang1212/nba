@@ -136,11 +136,17 @@
     },
     methods: {
       renderCharts() {
-        const formattedSeason = this.season.replace("-20", "-");
+        const convertSeason = (season) => {
+          const [start, end] = season.split("-");
+          return `${start}-${end.slice(2)}`;
+        };
+
+        const formattedSeason =
+          this.season.length === 9 ? convertSeason(this.season) : this.season;
+
         const teamData = this.nbaData.find((item) => {
-          const itemYear = item.YEAR.replace("-20", "-");
           return (
-            itemYear === formattedSeason &&
+            item.YEAR === formattedSeason &&
             item.TEAM === this.getTeamFullName(this.team)
           );
         });

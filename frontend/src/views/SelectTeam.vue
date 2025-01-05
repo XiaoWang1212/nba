@@ -361,15 +361,13 @@
         plot.on("plotly_sliderchange", (e) => {
           if (e && typeof e.step !== "undefined") {
             const currentSeason = seasons[e.step];
+            this.currentSeason = currentSeason;
             const frameData = frames.find((f) => f.name === currentSeason);
             if (frameData) {
               this.updateImagePositions(frameData.data, teams);
             }
           }
         });
-
-        this.currentSeason = seasons[seasons.length - 1];
-
         // 添加 frames
         Plotly.addFrames("plot", frames);
       },
@@ -441,12 +439,14 @@
           if (!data || !data.points || !data.points[0]) return;
 
           const point = data.points[0];
+          console.log("Clicked point:", point);
           const teamName = point.data.name;
+          const pointSeason = point.data.text.split("<br>")[1];
 
           if (this.mode === "single") {
             this.$router.push({
               name: "team-detail",
-              params: { team: teamName, season: this.currentSeason },
+              params: { team: teamName, season: pointSeason },
             });
           } else {
             if (this.selectedTeams.includes(teamName)) {
