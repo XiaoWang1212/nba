@@ -128,6 +128,9 @@
           };
         });
 
+        const maxY = Math.max(...this.chartData.map((d) => d.avg_points));
+        const minY = Math.min(...this.chartData.map((d) => d.avg_points));
+
         const layout = {
           title: {
             text: "NBA 球隊場均得分比較 (2018-2024)",
@@ -139,7 +142,8 @@
           },
           yaxis: {
             title: "場平均得分",
-            dtick: 100,
+            dtick: 5,
+            range: [minY - 5, maxY + 5],
             gridcolor: "#eee",
           },
           paper_bgcolor: "white",
