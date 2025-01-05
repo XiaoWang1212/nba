@@ -31,7 +31,7 @@
   
   <style>
   .back {
-    background: linear-gradient(to left, #313131, #000000);
+    background: linear-gradient(to left, #1c1c1c, #c9c9c9);
     height: 100vh;
     display: flex;
     justify-content: center;
