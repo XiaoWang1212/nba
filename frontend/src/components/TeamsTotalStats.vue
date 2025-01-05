@@ -161,8 +161,8 @@
         const FG3A = teamData.FG3A;
         const FTA = teamData.FTA;
 
-        const FG2M = teamData.FGM - teamData.FG3M;
-        const FG3M = teamData.FG3M;
+        const FG2M = (teamData.FGM - teamData.FG3M) * 2;
+        const FG3M = (teamData.FG3M) * 3;
         const FTM = teamData.FTM;
 
         // 繪製出手結構圖
@@ -199,7 +199,7 @@
         };
 
         const layout2 = {
-          title: "球隊命中結構",
+          title: "球隊得分結構",
           margin: { t: 30, l: 0 },
           font: { size: 15 },
           width: this.isExpanded ? 1000 : 350,
