@@ -159,7 +159,8 @@ def get_team_stats():
                     selected_data.append({
                         'team': row['TEAM_NAME'],
                         'season': row['YEAR'],
-                        'total_points': row['PTS'],
+                        # 'total_points': row['PTS'],
+                        'avg_points': row['PTS'] / row['GP'],
                         'three_points': row.get('FG3M', 0) * 3,
                         'blocks': row['BLK'],
                         'steals': row['STL'],

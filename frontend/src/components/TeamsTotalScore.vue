@@ -122,7 +122,7 @@
             mode: "lines+markers",
             type: "scatter",
             x: teamYears.map((d) => d.season),
-            y: teamYears.map((d) => d.total_points),
+            y: teamYears.map((d) => d.avg_points),
             name: teamName,
             marker: { size: 8 },
           };
@@ -130,7 +130,7 @@
 
         const layout = {
           title: {
-            text: "NBA 球隊總得分比較 (2018-2024)",
+            text: "NBA 球隊場均得分比較 (2018-2024)",
             font: { size: 24 },
           },
           xaxis: {
@@ -138,7 +138,7 @@
             gridcolor: "#eee",
           },
           yaxis: {
-            title: "總得分",
+            title: "場平均得分",
             dtick: 100,
             gridcolor: "#eee",
           },
