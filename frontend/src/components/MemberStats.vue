@@ -173,8 +173,8 @@
           margin: { l: 100, r: 100, t: 50, b: 50 },
           showlegend: true,
           legend: { font: { size: 16 } },
-          width: this.isExpanded ? 1000 : 400,
-          height: this.isExpanded ? 800 : 600,
+          width: 600,
+          height: 500,
           autosize: true,
         };
 
