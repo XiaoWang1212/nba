@@ -1,6 +1,6 @@
 <template>
   <div class="detail-container">
-    <button class="back-btn" @click="goBack">
+    <button v-if="!focusedChart" class="back-btn" @click="goBack">
       <span>&larr;</span> 返回選擇
     </button>
     <div class="carousel-container">
@@ -85,6 +85,10 @@
         this.$router.push({ name: "select-team" });
         return;
       }
+      window.addEventListener("keydown", this.handleKeyPress);
+    },
+    beforeMount() {
+      window.removeEventListener("keydown", this.handleKeyPress);
     },
     watch: {
       team: {
@@ -157,6 +161,22 @@
       },
       goBack() {
         this.$router.push({ name: "select-team" });
+      },
+      handleKeyPress(event) {
+        if (event.key === "ArrowRight" && !this.focusedChart) {
+          this.rotate("right");
+        } else if (event.key === "ArrowLeft" && !this.focusedChart) {
+          this.rotate("left");
+        } else if (event.key === "ArrowUp" && !this.focusedChart) {
+          const frontIndex = this.currentPosition.indexOf("front");
+          const frontType = this.components[frontIndex];
+          const card = document.querySelector(".chart-box.front");
+          if (card) {
+            this.handleCardClick({ currentTarget: card }, frontType);
+          }
+        } else if (event.key === "ArrowDown" && this.focusedChart) {
+          this.resetFocus();
+        }
       },
     },
   };

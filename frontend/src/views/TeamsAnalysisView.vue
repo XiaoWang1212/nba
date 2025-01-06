@@ -1,6 +1,6 @@
 <template>
   <div class="analysis-container">
-    <button class="back-btn" @click="goBack">
+    <button v-if="!focusedChart" class="back-btn" @click="goBack">
       <span>&larr;</span> 返回選擇
     </button>
     <div class="charts-wrapper">
